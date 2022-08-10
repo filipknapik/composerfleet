@@ -5,7 +5,7 @@
 ########################################################
 
 locals {
-    fleet_project = "abc"
+    fleet_project = "ssss"
     fleet_report_location = "us-central1"
     fleet_bucket_name = "fleetreport"
     composer_projects = toset(["project1", "project2"])
@@ -19,6 +19,7 @@ locals {
 
 provider "google" {
   project = local.fleet_project
+  region = local.fleet_report_location
 }
 
 #######################################################
@@ -71,9 +72,13 @@ resource "google_storage_bucket" "fleet_bucket" {
   uniform_bucket_level_access = true
 }
 
+locals {
+  bucket = replace(google_storage_bucket.fleet_bucket.url, "gs://", "")
+}
+
 ########################################################
 #  
-# Service Account setup in all projects
+# Service Account setup in the fleet monitoring project
 #
 ########################################################
 
@@ -84,6 +89,39 @@ resource "google_service_account" "fleet_service_account" {
   display_name = "Composer Fleet Reporting Capture Service Account"
   provider = google
 }
+
+# Grant the service account access to Composer API (enabling the function to retrieve list of supported Composer vesions)
+
+resource "google_project_iam_member" "fleet_sa_iam_composer" {
+  depends_on = [google_service_account.fleet_service_account]
+  project = local.fleet_project
+  role    = "roles/composer.user"
+  member  = join(":", ["serviceAccount", google_service_account.fleet_service_account.email])
+}
+
+# Grant the service account access to Compute API (enabling the function to retrieve list of Google Cloud regions)
+
+resource "google_project_iam_member" "fleet_sa_iam_compute" {
+  depends_on = [google_service_account.fleet_service_account]
+  project = local.fleet_project
+  role    = "roles/compute.viewer"
+  member  = join(":", ["serviceAccount", google_service_account.fleet_service_account.email])
+}
+
+# Grant the service account access to Storgae API (enabling the function to save the report.html to the bucket)
+
+resource "google_project_iam_member" "fleet_sa_iam_storage" {
+  depends_on = [google_service_account.fleet_service_account]
+  project = local.fleet_project
+  role    = "roles/storage.objectAdmin"
+  member  = join(":", ["serviceAccount", google_service_account.fleet_service_account.email])
+}
+
+########################################################
+#  
+# Service Account setup in all projects
+#
+########################################################
 
 # In all monitored projects: add Composer User permission to the Service Account of the reporting engine
 
@@ -150,11 +188,11 @@ resource "google_service_account" "function_service_account" {
 resource "google_project_iam_member" "fleet_projects_iam_function" {
   depends_on = [google_service_account.function_service_account]
   project = local.fleet_project
-  role    = "roles/run.invoker"
+  role    = "roles/cloudfunctions.invoker"
   member  = join(":", ["serviceAccount", google_service_account.function_service_account.email])
 }
 
-resource "google_cloudfunctions_function" "function" {
+resource "google_cloudfunctions_function" "refresh_function" {
   depends_on = [google_project_iam_member.fleet_projects_iam_function]
   name        = "fleetfunc"
   description = "Function refreshing Cloud Composer fleet reports"
@@ -162,10 +200,33 @@ resource "google_cloudfunctions_function" "function" {
   region      = local.fleet_report_location
 
   available_memory_mb   = 512
-  source_archive_bucket = replace(google_storage_bucket.fleet_bucket.url, "gs://", "")
+  source_archive_bucket = local.bucket
   source_archive_object = "function/source.zip"
   trigger_http          = true
   entry_point           = "fleetmon"
-  service_account_email = google_service_account.function_service_account.email
+  service_account_email = google_service_account.fleet_service_account.email
 
+  environment_variables = {
+    PROJECT_ID = local.fleet_project
+    PROJECTS = join(",",local.composer_projects)
+    BUCKET = local.bucket
+  }
+}
+
+resource "google_cloud_scheduler_job" "refresh_job" {
+  name             = "fleet_refresh_job"
+  description      = "Cloud Composer fleet report "
+  schedule         = "0 * * * *"
+  time_zone        = "America/New_York"
+  attempt_deadline = "600s"
+
+  http_target {
+    http_method = "POST"
+    uri         = google_cloudfunctions_function.refresh_function.https_trigger_url
+
+    oidc_token {
+      service_account_email = google_service_account.function_service_account.email
+      audience = google_cloudfunctions_function.refresh_function.https_trigger_url
+    }
+  }
 }

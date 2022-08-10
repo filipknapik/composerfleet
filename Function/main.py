@@ -260,6 +260,11 @@ def generate_report(errors, envs):
     return output
 
 def save_report(bucket, obj, contents):
+    print("Saving report...")
+    print("bucket:"+bucket)
+    print("obj:"+obj)
+    print("content:"+contents)
+    
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket)
 
@@ -278,6 +283,8 @@ def fleetmon(request):
     projects = projects_str_clean.split(",")
 
     project = os.environ.get('PROJECT_ID','')
+
+    bucket = os.environ.get('BUCKET','')
 
     try:
         regions = get_all_regions(project)
@@ -356,7 +363,7 @@ def fleetmon(request):
     contents = generate_report(project_errors, envs)
 
     try:
-        save_report("fleetreporter","report.html", contents)
+        save_report(bucket,"report.html", contents)
     except Exception as e:
         return "Error saving a report: " + str(e)
 
