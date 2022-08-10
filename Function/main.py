@@ -230,23 +230,23 @@ def print_errors(project_errors):
     return output
 
 def generate_report(errors, envs, dashboard):
-    output = "<html><body><head><style>body {background-color: #FFFFFF; font-family: Tahoma, sans-serif;}"
-    output += "table {width: 100%;}"
+    output = "<html><head><style>body{background-color: #FFFFFF;font-family: Tahoma, sans-serif;margin:0;padding:0;}"
+    output += "table {width: 100%;margin:5}"
     output += "h1 {font-weight: 400; font-size: 20px;}"
     output += "td {padding: 2px; text-align: left;}"
-    output += "th {background-color: #DDDDFF;padding: 3px; text-align: center;font-size: 12px;}"
+    output += "th {background-color: #e5eaff;padding: 3px;text-align: center;font-size: 12px;}"
     output += "td {font-size: 12px;}"
-    output += "p.refreshed {color: #888888; font-size: 12px;}"
-    output += "p.heading {color: #333333; font-size: 16px;font-weight: 400;}"
+    output += "p.refreshed {color: #888888;font-size: 12px;margin-left: 10px;}"
+    output += "p.heading {color: #333333;font-size: 16px;font-weight: 500;margin:20 10 10 10;}"
     output += "p.th_unit {font-size: 12px;font-weight: 400;margin-block-start: 0em;margin-block-end: 0em;}"
     output += "table tr td.error {color: #bd1102; text-align: center;}"
     output += "table tr td.warning {color: #eda02b;text-align: center;}"
     output += "table tr td.normal {color: #1b9c02;text-align: center;}"
     output += "table tr td.neutral {color: black;text-align: center;}"
-    output += ".topbar {overflow: hidden;background-color: #333;float: left;color: #FFFFFF;text-align: left;padding: 12px 12px;text-decoration: none;font-size: 17px;"
+    output += ".topbar{margin-top: 0px;margin-bottom:10px;background-color: #1aa260;float: left;color: #FFFFFF;text-align: left;padding: 10;text-decoration: none;font-size: 17px;width:100%;}"
     output += "tr:nth-child(even) {background-color: #f2f2f2;} "
-    output += ".button {background-color: #4066CE;border: none;font-weight: 300;color: white;padding: 15px;text-align: center;text-decoration: none;display: inline-block;font-size: 16px;margin: 4px 2px;cursor: pointer;border-radius: 4px;}"
-    output += "</style></head>"
+    output += ".button {background-color: #4066CE;border: none;font-weight: 300;color: white;padding: 10px 15px 10px 15px;text-align: center;text-decoration: none;display: inline-block;font-size: 16px;margin: 5px 5px 5px 16px;cursor: pointer;border-radius: 4px;}"
+    output += "</style></head><body>"
     output += "<div class='topbar'>Cloud Composer fleet manager</div>"
 
     now = datetime.datetime.now()
@@ -254,7 +254,8 @@ def generate_report(errors, envs, dashboard):
     output += "<p class='refreshed'>Refreshed on: " + formatted_time + " UTC</p>"
     output += "<p class='heading'>Environments' Monitoring Dashboard</p>"
     output += "<a href='" + dashboard + "'><button class='button'>Go to Monitoring Dashboard</button></a><br>"
-    
+    output += "<p class='heading'>List of environments</p>"
+
     if errors:
         output += "<p style='color:red'>" + print_errors(errors) + "</p><br>"
     if envs:
@@ -262,7 +263,7 @@ def generate_report(errors, envs, dashboard):
     else:
         output += "No environments found<br><br>"
 
-    output += "<p class='heading'>List of environments</p>"
+
     output += "</body></html>"
     return output
 

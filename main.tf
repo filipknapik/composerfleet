@@ -5,7 +5,7 @@
 ########################################################
 
 locals {
-    fleet_project = "mainproj"
+    fleet_project = "projecta"
     composer_projects = toset(["project1", "project2", "project3"])
 
     fleet_report_location = "us-central1"
