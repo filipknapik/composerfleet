@@ -5,8 +5,8 @@
 ########################################################
 
 locals {
-    fleet_project = "aaaaa"
-    composer_projects = toset(["project1", "project2", "project3"])
+    fleet_project = "mainproject"
+    composer_projects = toset(["project1", "project2", "project2"])
 
     fleet_report_location = "us-central1"
     fleet_bucket_name = "fleetreport"
@@ -1009,21 +1009,6 @@ resource "google_monitoring_dashboard" "composer_dashboard" {
 EOF
 }
 
-join("",["https://console.cloud.google.com/monitoring/dashboards/builder/", 
-element(3, split("/", google_monitoring_dashboard.composer_dashboard))
-,"?project=", project])
-
-"https://console.cloud.google.com/monitoring/dashboards/builder/", id,"?project=", project
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1206,7 +1191,7 @@ resource "google_project_iam_member" "fleet_projects_iam_function" {
 }
 
 resource "google_cloudfunctions_function" "refresh_function" {
-  depends_on = [google_project_iam_member.fleet_projects_iam_function, data.http.function_source_main_py, data.http.function_source_requirements_txt, data.archive_file.zip_function_source_code]
+  depends_on = [google_project_iam_member.fleet_projects_iam_function, data.http.function_source_main_py, data.http.function_source_requirements_txt, data.archive_file.zip_function_source_code, google_monitoring_dashboard.composer_dashboard]
   name        = "fleetfunc"
   description = "Function refreshing Cloud Composer fleet reports"
   runtime     = "python310"
@@ -1223,7 +1208,8 @@ resource "google_cloudfunctions_function" "refresh_function" {
     PROJECT_ID = local.fleet_project
     PROJECTS = join(",",local.composer_projects)
     BUCKET = local.bucket
-    MONITORING_DASHBOARD = join("",["https://console.cloud.google.com/monitoring/dashboards/builder/", element(3, split("/", google_monitoring_dashboard.composer_dashboard)),"?project=", project])
+    MONITORING_DASHBOARD = join("",["https://console.cloud.google.com/monitoring/dashboards/builder/", element(split("/", google_monitoring_dashboard.composer_dashboard.id), 3),"?project=", local.fleet_project])
+  }
   provider = google
 }
 
@@ -1245,7 +1231,4 @@ resource "google_cloud_scheduler_job" "refresh_job" {
   }
   provider = google
 }
-
-
-
 
