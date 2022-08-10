@@ -229,7 +229,7 @@ def print_errors(project_errors):
             output += str(error) + ", "
     return output
 
-def generate_report(errors, envs):
+def generate_report(errors, envs, dashboard):
     output = "<html><body><head><style>body {background-color: #FFFFFF; font-family: Tahoma, sans-serif;}"
     output += "table {width: 100%;}"
     output += "h1 {font-weight: 400; font-size: 20px;}"
@@ -250,6 +250,8 @@ def generate_report(errors, envs):
     formatted_time = now.strftime("%d/%m/%Y %H:%M:%S")
     output += "<p class='refreshed'>Refreshed on: " + formatted_time + " UTC<p>"
 
+    output += "<a href='" + dashboard + "'>Monitoring Dashboard</a>"
+
     if errors:
         output += "<p style='color:red'>" + print_errors(errors) + "</p><br>"
     if envs:
@@ -264,7 +266,7 @@ def save_report(bucket, obj, contents):
     print("bucket:"+bucket)
     print("obj:"+obj)
     print("content:"+contents)
-    
+
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket)
 
@@ -285,6 +287,7 @@ def fleetmon(request):
     project = os.environ.get('PROJECT_ID','')
 
     bucket = os.environ.get('BUCKET','')
+    dashboard = os.environ.get('MONITORING_DASHBOARD','')
 
     try:
         regions = get_all_regions(project)
@@ -360,7 +363,7 @@ def fleetmon(request):
 
         print("TIME: " + project + ": " + str(time.time() - start))         
 
-    contents = generate_report(project_errors, envs)
+    contents = generate_report(project_errors, envs, dashboard)
 
     try:
         save_report(bucket,"report.html", contents)
