@@ -5,8 +5,8 @@
 ########################################################
 
 locals {
-    fleet_project = "projecta"
-    composer_projects = toset(["project1", "project2", "project3"])
+    fleet_project = "projectall"
+    composer_projects = toset(["project1", "project2", "project3", "project4"])
 
     fleet_report_location = "us-central1"
     fleet_bucket_name = "fleetreport"
@@ -1232,3 +1232,7 @@ resource "google_cloud_scheduler_job" "refresh_job" {
   provider = google
 }
 
+output "instance_ip_addr" {
+  depends_on = [google_storage_bucket.fleet_bucket]
+  value = join("", ["Fleet report will be available after the next full hour at: ","https://storage.cloud.google.com/",local.fleet_bucket_name,"/report.html"])
+}
