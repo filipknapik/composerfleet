@@ -243,6 +243,7 @@ def generate_report(errors, envs, dashboard):
     output += "table tr td.normal {color: #1b9c02;text-align: center;}"
     output += "table tr td.neutral {color: black;text-align: center;}"
     output += "tr:nth-child(even) {background-color: #f2f2f2;} "
+    output += ".button {background-color: #4CAF50;border: none;color: white;padding: 20px;text-align: center;text-decoration: none;display: inline-block;font-size: 16px;margin: 4px 2px;cursor: pointer;border-radius: 4px;}"
     output += "</style></head>"
     output += "<h1>Cloud Composer fleet report</h1>"
 
@@ -250,7 +251,7 @@ def generate_report(errors, envs, dashboard):
     formatted_time = now.strftime("%d/%m/%Y %H:%M:%S")
     output += "<p class='refreshed'>Refreshed on: " + formatted_time + " UTC<p>"
 
-    output += "<a href='" + dashboard + "'>Monitoring Dashboard</a>"
+    output += "<a href='" + dashboard + "'><button class='button'>Composer Fleet Monitoring Dashboard</button></a>"
 
     if errors:
         output += "<p style='color:red'>" + print_errors(errors) + "</p><br>"
