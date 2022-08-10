@@ -237,28 +237,32 @@ def generate_report(errors, envs, dashboard):
     output += "th {background-color: #DDDDFF;padding: 3px; text-align: center;font-size: 12px;}"
     output += "td {font-size: 12px;}"
     output += "p.refreshed {color: #888888; font-size: 12px;}"
+    output += "p.heading {color: #333333; font-size: 16px;font-weight: 400;}"
     output += "p.th_unit {font-size: 12px;font-weight: 400;margin-block-start: 0em;margin-block-end: 0em;}"
     output += "table tr td.error {color: #bd1102; text-align: center;}"
     output += "table tr td.warning {color: #eda02b;text-align: center;}"
     output += "table tr td.normal {color: #1b9c02;text-align: center;}"
     output += "table tr td.neutral {color: black;text-align: center;}"
+    output += ".topbar {overflow: hidden;background-color: #333;float: left;color: #FFFFFF;text-align: left;padding: 12px 12px;text-decoration: none;font-size: 17px;"
     output += "tr:nth-child(even) {background-color: #f2f2f2;} "
-    output += ".button {background-color: #4CAF50;border: none;color: white;padding: 20px;text-align: center;text-decoration: none;display: inline-block;font-size: 16px;margin: 4px 2px;cursor: pointer;border-radius: 4px;}"
+    output += ".button {background-color: #4066CE;border: none;font-weight: 300;color: white;padding: 15px;text-align: center;text-decoration: none;display: inline-block;font-size: 16px;margin: 4px 2px;cursor: pointer;border-radius: 4px;}"
     output += "</style></head>"
-    output += "<h1>Cloud Composer fleet report</h1>"
+    output += "<div class='topbar'>Cloud Composer fleet manager</div>"
 
     now = datetime.datetime.now()
     formatted_time = now.strftime("%d/%m/%Y %H:%M:%S")
-    output += "<p class='refreshed'>Refreshed on: " + formatted_time + " UTC<p>"
-
-    output += "<a href='" + dashboard + "'><button class='button'>Composer Fleet Monitoring Dashboard</button></a>"
-
+    output += "<p class='refreshed'>Refreshed on: " + formatted_time + " UTC</p>"
+    output += "<p class='heading'>Environments' Monitoring Dashboard</p>"
+    output += "<a href='" + dashboard + "'><button class='button'>Go to Monitoring Dashboard</button></a><br>"
+    
     if errors:
         output += "<p style='color:red'>" + print_errors(errors) + "</p><br>"
     if envs:
         output += print_envs(envs)
     else:
         output += "No environments found<br><br>"
+
+    output += "<p class='heading'>List of environments</p>"
     output += "</body></html>"
     return output
 
@@ -360,9 +364,7 @@ def fleetmon(request):
                             env['dagsuccess'] = str(runs_metrics[key])
                         else:
                             env['dagsuccess'] = ""
-                        envs.append(env)
-
-        print("TIME: " + project + ": " + str(time.time() - start))         
+                        envs.append(env)       
 
     contents = generate_report(project_errors, envs, dashboard)
 
