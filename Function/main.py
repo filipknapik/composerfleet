@@ -88,14 +88,11 @@ def list_envs(project, region, versions_support, queue):
                 new_env['airflow_version'] = searched_terms.group(2)
 
             new_env['script'] = ""
-            if hasattr(response.config.private_environment_config, 'env_variables'):
-                env_vars = response.config.private_environment_config.env_variables
-                print('env_vars:' + str(env_vars))
-                for env_var in env_vars:
-                    for key in env_var.keys():
-                        if key == 'ENVIRONMENT_CODE_SCRIPT':
-                            new_env['script'] = getattr(env_var, key)
-
+            if hasattr(response.config.software_config, 'env_variables'):
+                env_vars = response.config.software_config.env_variables
+                for key in env_vars.keys():
+                    if key == 'ENVIRONMENT_CODE_SCRIPT':
+                        new_env['script'] = str(env_vars[key])
 
             if hasattr(response.config.private_environment_config, 'enable_private_environment'):
                 if response.config.private_environment_config.enable_private_environment:
@@ -119,7 +116,6 @@ def list_envs(project, region, versions_support, queue):
 def get_metric(project, metric, aligner):
     client = monitoring_v3.MetricServiceClient()
     project_name = f"projects/" + project
-    print("retrieving for " + project)
 
     now = time.time()
     seconds = int(now)
@@ -198,7 +194,7 @@ def get_runs(project):
     return output
 
 def print_envs(envs):
-    output = "<table><tr><th>Project</th><th>Environment</th><th>Terraform<br>code</th><th>Location</th><th>State</th><th>Composer<br>version</th><th>Airflow<br>version</th><th>Private IP</th><th>Created<p class='th_unit'>days ago</p></th><th>Updated<p class='th_unit'>days ago</p></th><th>Support<p class='th_unit'>months left</p></th><th>Health<p class='th_unit'>% of time last 24h</p></th><th>Successful DAG Runs<p class='th_unit'>% of all runs last 24h</p></th></tr>"
+    output = "<table><tr><th>Project</th><th>Environment</th><th>TF<br>script</th><th>Location</th><th>State</th><th>Composer<br>version</th><th>Airflow<br>version</th><th>Private IP</th><th>Created<p class='th_unit'>days ago</p></th><th>Updated<p class='th_unit'>days ago</p></th><th>Support<p class='th_unit'>months left</p></th><th>Health<p class='th_unit'>% of time last 24h</p></th><th>Successful<br>DAG Runs<p class='th_unit'>% of all runs last 24h</p></th></tr>"
     
     for env in envs:
         state_f = "error" if env['state']=="ERROR" else "normal"
@@ -222,7 +218,7 @@ def print_envs(envs):
 
         output += "<tr><td>"+env['project'] + "</td>" + \
             "<td><a href='" + env['url'] + "'>" + env['environment'] + "</a></td>"+ \
-            "<td><a href='" + env['script'] + "'>" + script_caption + "</a></td>"+ \
+            "<td class='neutral'><a href='" + env['script'] + "'>" + script_caption + "</a></td>"+ \
             "<td class='neutral'>" + env['location'] + "</td>"+ \
             "<td class='" + state_f + "'>" + env['state']+ "</td>"+ \
             "<td class='" + composer_version_f + "'>" + env['composer_version'] + "</td>" + \
@@ -284,11 +280,6 @@ def generate_report(errors, envs, dashboard):
     return output
 
 def save_report(bucket, obj, contents):
-    print("Saving report...")
-    print("bucket:"+bucket)
-    print("obj:"+obj)
-    print("content:"+contents)
-
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket)
 
