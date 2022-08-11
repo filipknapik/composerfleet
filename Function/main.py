@@ -220,9 +220,9 @@ def print_envs(envs):
         else:
             script_caption = "Link"
 
-        output += "<tr><td>"+env['project'] + "</td><td>" + \
-            "<a href='" + env['url'] + "'>" + env['environment'] + "</a></td>"+ \
-            "<a href='" + env['script'] + "'>" + script_caption + "</a></td>"+ \
+        output += "<tr><td>"+env['project'] + "</td>" + \
+            "<td><a href='" + env['url'] + "'>" + env['environment'] + "</a></td>"+ \
+            "<td><a href='" + env['script'] + "'>" + script_caption + "</a></td>"+ \
             "<td class='neutral'>" + env['location'] + "</td>"+ \
             "<td class='" + state_f + "'>" + env['state']+ "</td>"+ \
             "<td class='" + composer_version_f + "'>" + env['composer_version'] + "</td>" + \
