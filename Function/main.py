@@ -87,6 +87,16 @@ def list_envs(project, region, versions_support, queue):
                 new_env['composer_version'] = searched_terms.group(1)
                 new_env['airflow_version'] = searched_terms.group(2)
 
+            new_env['script'] = ""
+            if hasattr(response.config.private_environment_config, 'env_variables'):
+                env_vars = response.config.private_environment_config.env_variables
+                print('env_vars:' + str(env_vars))
+                for env_var in env_vars:
+                    for key in env_var.keys():
+                        if key == 'ENVIRONMENT_CODE_SCRIPT':
+                            new_env['script'] = getattr(env_var, key)
+
+
             if hasattr(response.config.private_environment_config, 'enable_private_environment'):
                 if response.config.private_environment_config.enable_private_environment:
                     new_env['private'] = 'Y'
@@ -188,7 +198,7 @@ def get_runs(project):
     return output
 
 def print_envs(envs):
-    output = "<table><tr><th>Project</th><th>Environment</th><th>Location</th><th>State</th><th>Composer<br>version</th><th>Airflow<br>version</th><th>Private IP</th><th>Created<p class='th_unit'>days ago</p></th><th>Updated<p class='th_unit'>days ago</p></th><th>Support<p class='th_unit'>months left</p></th><th>Health<p class='th_unit'>% of time last 24h</p></th><th>Successful DAG Runs<p class='th_unit'>% of all runs last 24h</p></th></tr>"
+    output = "<table><tr><th>Project</th><th>Environment</th><th>Terraform<br>code</th><th>Location</th><th>State</th><th>Composer<br>version</th><th>Airflow<br>version</th><th>Private IP</th><th>Created<p class='th_unit'>days ago</p></th><th>Updated<p class='th_unit'>days ago</p></th><th>Support<p class='th_unit'>months left</p></th><th>Health<p class='th_unit'>% of time last 24h</p></th><th>Successful DAG Runs<p class='th_unit'>% of all runs last 24h</p></th></tr>"
     
     for env in envs:
         state_f = "error" if env['state']=="ERROR" else "normal"
@@ -205,8 +215,14 @@ def print_envs(envs):
         else:
             dagsuccess_f = "error" 
 
+        if env['script']=="":
+            script_caption = ""
+        else:
+            script_caption = "Link"
+
         output += "<tr><td>"+env['project'] + "</td><td>" + \
             "<a href='" + env['url'] + "'>" + env['environment'] + "</a></td>"+ \
+            "<a href='" + env['script'] + "'>" + script_caption + "</a></td>"+ \
             "<td class='neutral'>" + env['location'] + "</td>"+ \
             "<td class='" + state_f + "'>" + env['state']+ "</td>"+ \
             "<td class='" + composer_version_f + "'>" + env['composer_version'] + "</td>" + \
