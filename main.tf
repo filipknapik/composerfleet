@@ -5,13 +5,32 @@
 ########################################################
 
 locals {
-    fleet_project = "projectall"
-    composer_projects = toset(["project1", "project2", "project3", "project4"])
+    fleet_report_location = "us-central1"            # Region where Fleet Monitoring resources will be deployed. The model captures 
+                                                     # data from all Google Cloud regions regardless of this location
 
-    fleet_report_location = "us-central1"
-    fleet_bucket_name = "fleetreport"
+    fleet_project = "someprojectid"                      # Project ID where Fleet Monitoring resources will be deployed. The script
+                                                     # creates this project as part of the run.
+    
+    composer_projects = toset([                      # Projects with Cloud Composer environments
+    "project1", "project2", "project3"])
+
+
+    fleet_bucket_name = "mybucketname"                # Name of a Storage Bucket that Fleet Monitoring will use. 
+                                                     # The name needs to be unique.
+                                                     # Try using human-readable name as it will be included in the 
+                                                     # URL of a fleet report. 
 }
 
+resource "google_project" "fleet_monitoring_project" {
+  name       = "Composer Fleet Reporting"
+  project_id = local.fleet_project
+  folder_id  = 1234567890                               # Optional. only one of org_id and folder_id can be used
+  # org_id = ...                                          # Optional. only one of org_id and folder_id can be used
+  billing_account = "00000-00000-00000"                # Optional. ID of a billing account
+}
+
+
+	
 #######################################################
 #  
 # Provider
@@ -28,9 +47,84 @@ provider "google-beta" {
 }
 
 
+#######################################################
+#  
+# Enable APIs in the fleet monitoring project
+#
+########################################################
 
+# Enable Composer API
 
+resource "google_project_service" "composer_api" {
+  depends_on = [google_project.fleet_monitoring_project]
+  project = local.fleet_project
+  service = "composer.googleapis.com"
+  provider = google
+}
 
+# Enable Storage API
+
+resource "google_project_service" "storage_api" {
+  depends_on = [google_project.fleet_monitoring_project]
+  project = local.fleet_project
+  service = "storage.googleapis.com"
+  provider = google
+}
+
+# Enable Cloud Functions API
+
+resource  "google_project_service" "functions_api" {
+  depends_on = [google_project.fleet_monitoring_project]
+  project = local.fleet_project
+  service = "cloudfunctions.googleapis.com"
+  provider = google
+}
+
+# Enable Scheduler API
+
+resource "google_project_service" "scheduler_api" {
+  depends_on = [google_project.fleet_monitoring_project]
+  project = local.fleet_project
+  service = "cloudscheduler.googleapis.com"
+  provider = google
+}
+
+# Enable Monitoring API
+
+resource "google_project_service" "monitoring_api" {
+  depends_on = [google_project.fleet_monitoring_project]
+  project = local.fleet_project
+  service = "monitoring.googleapis.com"
+  provider = google
+}
+
+########################################################
+#  
+# Service Account setup in all projects
+#
+########################################################
+
+# In all monitored projects: add Composer User permission to the Service Account of the reporting engine
+
+resource "google_project_iam_member" "fleet_projects_iam_composer" {
+  depends_on = [google_service_account.fleet_service_account]
+  for_each = local.composer_projects
+  project = "${each.value}"
+  role    = "roles/composer.user"
+  member  = join(":", ["serviceAccount", google_service_account.fleet_service_account.email])
+  provider = google
+}
+
+# In all monitored projects: add Monitoring Viewer permission to the Service Account of the reporting engine
+
+resource "google_project_iam_member" "fleet_projects_iam_monitoring" {
+  depends_on = [google_service_account.fleet_service_account]
+  for_each = local.composer_projects
+  project = "${each.value}"
+  role    = "roles/monitoring.viewer"
+  member  = join(":", ["serviceAccount", google_service_account.fleet_service_account.email])
+  provider = google
+}
 
 #######################################################
 #  
@@ -39,6 +133,7 @@ provider "google-beta" {
 ########################################################
 
 resource "google_monitoring_monitored_project" "projects_monitored" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api, google_project_iam_member.fleet_projects_iam_monitoring]
   for_each = local.composer_projects
   metrics_scope = join("",["locations/global/metricsScopes/",local.fleet_project])
   name          = "${each.value}"
@@ -53,6 +148,7 @@ resource "google_monitoring_monitored_project" "projects_monitored" {
 ########################################################
 
 resource "google_monitoring_alert_policy" "environment_health" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Environment Health"
   combiner     = "OR"
   conditions {
@@ -88,6 +184,7 @@ resource "google_monitoring_alert_policy" "environment_health" {
 }
 
 resource "google_monitoring_alert_policy" "database_health" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Database Health"
   combiner     = "OR"
   conditions {
@@ -119,6 +216,7 @@ resource "google_monitoring_alert_policy" "database_health" {
 }
 
 resource "google_monitoring_alert_policy" "webserver_health" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Web Server Health"
   combiner     = "OR"
   conditions {
@@ -149,6 +247,7 @@ resource "google_monitoring_alert_policy" "webserver_health" {
 }
 
 resource "google_monitoring_alert_policy" "scheduler_heartbeat" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Scheduler Heartbeat"
   combiner     = "OR"
   conditions {
@@ -181,6 +280,7 @@ resource "google_monitoring_alert_policy" "scheduler_heartbeat" {
 }
 
 resource "google_monitoring_alert_policy" "database_cpu" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Database CPU"
   combiner     = "OR"
   conditions {
@@ -205,6 +305,7 @@ resource "google_monitoring_alert_policy" "database_cpu" {
 }
 
 resource "google_monitoring_alert_policy" "scheduler_cpu" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Scheduler CPU"
   combiner     = "OR"
   conditions {
@@ -231,6 +332,7 @@ resource "google_monitoring_alert_policy" "scheduler_cpu" {
 }
 
 resource "google_monitoring_alert_policy" "worker_cpu" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Worker CPU"
   combiner     = "OR"
   conditions {
@@ -257,6 +359,7 @@ resource "google_monitoring_alert_policy" "worker_cpu" {
 }
 
 resource "google_monitoring_alert_policy" "webserver_cpu" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Web Server CPU"
   combiner     = "OR"
   conditions {
@@ -283,6 +386,7 @@ resource "google_monitoring_alert_policy" "webserver_cpu" {
 }
 
 resource "google_monitoring_alert_policy" "parsing_time" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "DAG Parsing Time"
   combiner     = "OR"
   conditions {
@@ -307,6 +411,7 @@ resource "google_monitoring_alert_policy" "parsing_time" {
 }
 
 resource "google_monitoring_alert_policy" "database_memory" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Database Memory"
   combiner     = "OR"
   conditions {
@@ -331,6 +436,7 @@ resource "google_monitoring_alert_policy" "database_memory" {
 }
 
 resource "google_monitoring_alert_policy" "scheduler_memory" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Scheduler Memory"
   combiner     = "OR"
   conditions {
@@ -362,6 +468,7 @@ resource "google_monitoring_alert_policy" "scheduler_memory" {
 }
 
 resource "google_monitoring_alert_policy" "worker_memory" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Worker Memory"
   combiner     = "OR"
   conditions {
@@ -388,6 +495,7 @@ resource "google_monitoring_alert_policy" "worker_memory" {
 }
 
 resource "google_monitoring_alert_policy" "webserver_memory" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Web Server Memory"
   combiner     = "OR"
   conditions {
@@ -414,6 +522,7 @@ resource "google_monitoring_alert_policy" "webserver_memory" {
 }
 
 resource "google_monitoring_alert_policy" "scheduled_tasks_percentage" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Scheduled Tasks Percentage"
   combiner     = "OR"
   conditions {
@@ -439,6 +548,7 @@ resource "google_monitoring_alert_policy" "scheduled_tasks_percentage" {
 }
 
 resource "google_monitoring_alert_policy" "queued_tasks_percentage" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Queued Tasks Percentage"
   combiner     = "OR"
   conditions {
@@ -465,6 +575,7 @@ resource "google_monitoring_alert_policy" "queued_tasks_percentage" {
 }
 
 resource "google_monitoring_alert_policy" "queued_or_scheduled_tasks_percentage" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Queued or Scheduled Tasks Percentage"
   combiner     = "OR"
   conditions {
@@ -492,6 +603,7 @@ resource "google_monitoring_alert_policy" "queued_or_scheduled_tasks_percentage"
 
 
 resource "google_monitoring_alert_policy" "workers_above_minimum" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Workers above minimum (negative = missing workers)"
   combiner     = "OR"
   conditions {
@@ -521,6 +633,7 @@ resource "google_monitoring_alert_policy" "workers_above_minimum" {
 }
 
 resource "google_monitoring_alert_policy" "pod_evictions" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Worker pod evictions"
   combiner     = "OR"
   conditions {
@@ -545,6 +658,7 @@ resource "google_monitoring_alert_policy" "pod_evictions" {
 }
 
 resource "google_monitoring_alert_policy" "scheduler_errors" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Scheduler Errors"
   combiner     = "OR"
   conditions {
@@ -572,6 +686,7 @@ resource "google_monitoring_alert_policy" "scheduler_errors" {
 }
 
 resource "google_monitoring_alert_policy" "worker_errors" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Worker Errors"
   combiner     = "OR"
   conditions {
@@ -599,6 +714,7 @@ resource "google_monitoring_alert_policy" "worker_errors" {
 }
 
 resource "google_monitoring_alert_policy" "webserver_errors" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Web Server Errors"
   combiner     = "OR"
   conditions {
@@ -626,6 +742,7 @@ resource "google_monitoring_alert_policy" "webserver_errors" {
 }
 
 resource "google_monitoring_alert_policy" "other_errors" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   display_name = "Other Errors"
   combiner     = "OR"
   conditions {
@@ -662,6 +779,7 @@ resource "google_monitoring_alert_policy" "other_errors" {
 
 
 resource "google_monitoring_dashboard" "composer_dashboard" {
+  depends_on = [google_project.fleet_monitoring_project, google_project_service.monitoring_api]
   dashboard_json = <<EOF
 {
   "category": "CUSTOM",
@@ -1012,43 +1130,6 @@ EOF
 
 
 
-#######################################################
-#  
-# Enable APIs in the fleet monitoring project
-#
-########################################################
-
-# Enable Composer API
-
-resource "google_project_service" "composer_api" {
-  project = local.fleet_project
-  service = "composer.googleapis.com"
-  provider = google
-}
-
-# Enable Storage API
-
-resource "google_project_service" "storage_api" {
-  project = local.fleet_project
-  service = "storage.googleapis.com"
-  provider = google
-}
-
-# Enable Cloud Functions API
-
-resource  "google_project_service" "functions_api" {
-  project = local.fleet_project
-  service = "cloudfunctions.googleapis.com"
-  provider = google
-}
-
-# Enable Scheduler API
-
-resource "google_project_service" "scheduler_api" {
-  project = local.fleet_project
-  service = "cloudscheduler.googleapis.com"
-  provider = google
-}
 
 ########################################################
 #  
@@ -1057,6 +1138,7 @@ resource "google_project_service" "scheduler_api" {
 ########################################################
 
 resource "google_storage_bucket" "fleet_bucket" {
+  depends_on = [google_project.fleet_monitoring_project]
   location = local.fleet_report_location
   name     = local.fleet_bucket_name
   uniform_bucket_level_access = true
@@ -1064,6 +1146,7 @@ resource "google_storage_bucket" "fleet_bucket" {
 }
 
 locals {
+  depends_on = [google_storage_bucket.fleet_bucket]
   bucket = replace(google_storage_bucket.fleet_bucket.url, "gs://", "")
 }
 
@@ -1076,6 +1159,7 @@ locals {
 # Create Service Account for reporting in the monitoring project
 
 resource "google_service_account" "fleet_service_account" {
+  depends_on = [google_project.fleet_monitoring_project]
   account_id   = "fleetcapture"
   display_name = "Composer Fleet Reporting Capture Service Account"
   provider = google
@@ -1111,46 +1195,22 @@ resource "google_project_iam_member" "fleet_sa_iam_storage" {
   provider = google
 }
 
-########################################################
-#  
-# Service Account setup in all projects
-#
-########################################################
 
-# In all monitored projects: add Composer User permission to the Service Account of the reporting engine
-
-resource "google_project_iam_member" "fleet_projects_iam_composer" {
-  depends_on = [google_service_account.fleet_service_account]
-  for_each = local.composer_projects
-  project = "${each.value}"
-  role    = "roles/composer.user"
-  member  = join(":", ["serviceAccount", google_service_account.fleet_service_account.email])
-  provider = google
-}
-
-# In all monitored projects: add Monitoring Viewer permission to the Service Account of the reporting engine
-
-resource "google_project_iam_member" "fleet_projects_iam_monitoring" {
-  depends_on = [google_service_account.fleet_service_account]
-  for_each = local.composer_projects
-  project = "${each.value}"
-  role    = "roles/monitoring.viewer"
-  member  = join(":", ["serviceAccount", google_service_account.fleet_service_account.email])
-  provider = google
-}
 
 data "http" "function_source_main_py" {
+  depends_on = [google_project.fleet_monitoring_project]
   url = "https://github.com/filipknapik/composerfleet/blob/main/Function/main.py?raw=true"
 
 }
 
 data "http" "function_source_requirements_txt" {
+  depends_on = [google_project.fleet_monitoring_project]
   url = "https://github.com/filipknapik/composerfleet/blob/main/Function/requirements.txt?raw=true"
 
 }
 
 data "archive_file" "zip_function_source_code" {
-  depends_on = [data.http.function_source_main_py, data.http.function_source_requirements_txt]
+  depends_on = [google_project.fleet_monitoring_project, data.http.function_source_main_py, data.http.function_source_requirements_txt]
   type        = "zip"
   output_path = "${path.module}/Archive.zip"
 
@@ -1166,7 +1226,7 @@ data "archive_file" "zip_function_source_code" {
 }
 
 resource "google_storage_bucket_object" "function_code" {
-  depends_on = [data.archive_file.zip_function_source_code]
+  depends_on = [data.archive_file.zip_function_source_code, google_storage_bucket.fleet_bucket]
   name   = "function/source.zip"
   source = "${path.module}/Archive.zip"
   bucket = replace(google_storage_bucket.fleet_bucket.url, "gs://", "")
@@ -1183,7 +1243,7 @@ resource "google_service_account" "function_service_account" {
 # In all monitored projects: add Composer User permission to the Service Account of the reporting engine
 
 resource "google_project_iam_member" "fleet_projects_iam_function" {
-  depends_on = [google_service_account.function_service_account]
+  depends_on = [google_service_account.function_service_account, google_project.fleet_monitoring_project]
   project = local.fleet_project
   role    = "roles/cloudfunctions.invoker"
   member  = join(":", ["serviceAccount", google_service_account.function_service_account.email])
@@ -1191,7 +1251,7 @@ resource "google_project_iam_member" "fleet_projects_iam_function" {
 }
 
 resource "google_cloudfunctions_function" "refresh_function" {
-  depends_on = [google_project_iam_member.fleet_projects_iam_function, data.http.function_source_main_py, data.http.function_source_requirements_txt, data.archive_file.zip_function_source_code, google_monitoring_dashboard.composer_dashboard]
+  depends_on = [google_project.fleet_monitoring_project, google_project_iam_member.fleet_projects_iam_function, data.http.function_source_main_py, data.http.function_source_requirements_txt, data.archive_file.zip_function_source_code, google_monitoring_dashboard.composer_dashboard]
   name        = "fleetfunc"
   description = "Function refreshing Cloud Composer fleet reports"
   runtime     = "python310"
@@ -1214,6 +1274,7 @@ resource "google_cloudfunctions_function" "refresh_function" {
 }
 
 resource "google_cloud_scheduler_job" "refresh_job" {
+  depends_on = [google_project.fleet_monitoring_project]
   name             = "fleet_refresh_job"
   description      = "Cloud Composer fleet report "
   schedule         = "0 * * * *"
@@ -1232,7 +1293,7 @@ resource "google_cloud_scheduler_job" "refresh_job" {
   provider = google
 }
 
-output "instance_ip_addr" {
+output "fleetreport" {
   depends_on = [google_storage_bucket.fleet_bucket]
   value = join("", ["Fleet report will be available after the next full hour at: ","https://storage.cloud.google.com/",local.fleet_bucket_name,"/report.html"])
 }
