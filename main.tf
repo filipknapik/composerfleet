@@ -1151,6 +1151,7 @@ locals {
 }
 
 resource "google_project_iam_member" "fleet_user_bucket_iam" {
+  depends_on = [google_project.fleet_monitoring_project]
   project = local.fleet_project
   for_each = local.report_users
   role    = "roles/storage.objectViewer"
@@ -1159,6 +1160,7 @@ resource "google_project_iam_member" "fleet_user_bucket_iam" {
 }
 
 resource "google_project_iam_member" "fleet_user_monitoring_iam" {
+  depends_on = [google_project.fleet_monitoring_project]
   project = local.fleet_project
   for_each = local.report_users
   role    = "roles/monitoring.editor"
@@ -1251,6 +1253,7 @@ resource "google_storage_bucket_object" "function_code" {
 
 
 resource "google_service_account" "function_service_account" {
+  depends_on = [google_project.fleet_monitoring_project]
   account_id   = "funcinvoker"
   display_name = "Composer Fleet Reporting Function Invoker Service Account"
   provider = google
