@@ -1150,6 +1150,22 @@ locals {
   bucket = replace(google_storage_bucket.fleet_bucket.url, "gs://", "")
 }
 
+resource "google_project_iam_member" "fleet_user_bucket_iam" {
+  project = local.fleet_project
+  for_each = local.report_users
+  role    = "roles/storage.objectViewer"
+  member  = join(":", ["user", "${each.value}"])
+  provider = google
+}
+
+resource "google_project_iam_member" "fleet_user_monitoring_iam" {
+  project = local.fleet_project
+  for_each = local.report_users
+  role    = "roles/monitoring.editor"
+  member  = join(":", ["user", "${each.value}"])
+  provider = google
+}
+
 ########################################################
 #  
 # Service Account setup in the fleet monitoring project
@@ -1262,6 +1278,7 @@ resource "google_cloudfunctions_function" "refresh_function" {
   source_archive_object = "function/source.zip"
   trigger_http          = true
   entry_point           = "fleetmon"
+  timeout               = 540
   service_account_email = google_service_account.fleet_service_account.email
 
   environment_variables = {
@@ -1293,7 +1310,10 @@ resource "google_cloud_scheduler_job" "refresh_job" {
   provider = google
 }
 
-output "fleetreport" {
+output "summary" {
   depends_on = [google_storage_bucket.fleet_bucket]
-  value = join("", ["Fleet report will be available after the next full hour at: ","https://storage.cloud.google.com/",local.fleet_bucket_name,"/report.html"])
+  value = join("", ["\n\nFleet report will be available after the next full hour at: ",
+  "https://storage.cloud.google.com/",local.fleet_bucket_name,"/report.html\n\n",
+  "To refresh the report manually, run:\ncurl -m 540 -X POST ",google_cloudfunctions_function.refresh_function.https_trigger_url,
+  " -H \"Authorization:bearer $(gcloud auth print-identity-token)\" -H \"Content-Type:application/json\" -d '{}'\n\n"])
 }
